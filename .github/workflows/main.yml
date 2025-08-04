@@ -1,0 +1,72 @@
+# This is a GitHub Actions workflow file.
+# It defines the CI/CD pipeline for deploying the FastAPI application.
+
+name: Deploy FastAPI App to Cloud Run
+
+# --- Trigger ---
+# This pipeline will run automatically on every push to the 'main' branch.
+on:
+  push:
+    branches:
+      - main
+
+# --- Environment Variables ---
+# Set up environment variables to be used throughout the workflow.
+# IMPORTANT: You must create these as 'Repository Secrets' in your GitHub repo settings.
+# Go to Settings > Secrets and variables > Actions > New repository secret
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }} # e.g., ordinal-case-467905-p7
+  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}      # The JSON key of your service account
+  REGION: us-central1                       # The GCP region for your resources
+  APP_NAME: house-price-predictor           # The name for your Cloud Run service
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- 1. Checkout Code ---
+      # Checks out your repository's code so the job can access it.
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # --- 2. Authenticate to Google Cloud ---
+      # Uses the service account key you stored as a secret to authenticate.
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # --- 3. Set up Google Cloud SDK ---
+      # Installs and configures the gcloud CLI in the runner environment.
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      # --- 4. Configure Docker ---
+      # Configures Docker to authenticate with Google Artifact Registry.
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      # --- 5. Build the Docker Image ---
+      # Builds the Docker image for your FastAPI app using your Dockerfile.
+      # The image is tagged with the Artifact Registry path.
+      - name: Build Docker image
+        run: docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest .
+
+      # --- 6. Push the Docker Image ---
+      # Pushes the newly built image to Google Artifact Registry.
+      - name: Push Docker image
+        run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest
+
+      # --- 7. Deploy to Cloud Run ---
+      # Deploys the container image from Artifact Registry to Cloud Run.
+      # This command creates or updates the Cloud Run service.
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.APP_NAME }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated # Allows public access to your API endpoint
+

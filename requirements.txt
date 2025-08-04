@@ -1,0 +1,21 @@
+# Core ML & Data Handling
+pandas
+scikit-learn
+xgboost
+joblib
+numpy
+
+# API Framework
+fastapi
+uvicorn
+
+# GCP Integration & MLOps
+google-cloud-storage
+gcsfs
+
+# Model Explainability
+shap
+
+# Tesing
+pytest
+pytest-asyncio
