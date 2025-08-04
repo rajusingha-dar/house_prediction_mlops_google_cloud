@@ -1,66 +1,49 @@
-# This is a GitHub Actions workflow file.
-# It defines the CI/CD pipeline for deploying the FastAPI application.
-
 name: Deploy FastAPI App to Cloud Run
 
-# --- Trigger ---
-# This pipeline will run automatically on every push to the 'master' branch.
 on:
   push:
     branches:
       - master
 
-# --- Environment Variables ---
-# Set up environment variables to be used throughout the workflow.
-# IMPORTANT: You must create these as 'Repository Secrets' in your GitHub repo settings.
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
   REGION: us-central1
   APP_NAME: house-price-predictor
-  GCS_BUCKET: machine_learning_data_lake # Define the bucket name here
+  GCS_BUCKET: machine_learning_data_lake
+  # Define the production frontend URL here
+  ALLOWED_ORIGINS_PROD: "https://your-deployed-frontend-url.run.app" 
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy
+  build-and-deploy-backend:
+    name: Build and Deploy Backend
     runs-on: ubuntu-latest
-
     steps:
-      # --- 1. Checkout Code ---
       - name: Checkout
         uses: actions/checkout@v3
 
-      # --- 2. Authenticate to Google Cloud ---
       - name: Authenticate to Google Cloud
         uses: 'google-github-actions/auth@v1'
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # --- 3. Set up Google Cloud SDK ---
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v1'
 
-      # --- 4. Configure Docker ---
       - name: Configure Docker
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      # --- 5. Build the Docker Image ---
-      - name: Build Docker image
+      - name: Build Backend Docker image
         run: docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest .
 
-      # --- 6. Push the Docker Image ---
-      - name: Push Docker image
+      - name: Push Backend Docker image
         run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest
 
-      # --- 7. Deploy to Cloud Run ---
-      # This is the key fix: We use the --set-env-vars flag to inject our bucket name
-      # into the Cloud Run service's environment.
-      - name: Deploy to Cloud Run
+      - name: Deploy Backend to Cloud Run
         run: |
           gcloud run deploy ${{ env.APP_NAME }} \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.APP_NAME }}/${{ env.APP_NAME }}:latest \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars=GCS_BUCKET_NAME=${{ env.GCS_BUCKET }}
-
+            --set-env-vars="GCS_BUCKET_NAME=${{ env.GCS_BUCKET }},ALLOWED_ORIGINS=${{ env.ALLOWED_ORIGINS_PROD }}"
