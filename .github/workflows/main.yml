@@ -4,11 +4,11 @@
 name: Deploy FastAPI App to Cloud Run
 
 # --- Trigger ---
-# This pipeline will run automatically on every push to the 'main' branch.
+# This pipeline will run automatically on every push to the 'master' branch.
 on:
   push:
     branches:
-      - main
+      - master  # <-- CORRECTED BRANCH NAME
 
 # --- Environment Variables ---
 # Set up environment variables to be used throughout the workflow.
