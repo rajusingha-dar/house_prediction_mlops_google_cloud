@@ -139,4 +139,5 @@ To enable the CI/CD pipeline, you must configure the following secrets in your G
 
 GCP_PROJECT_ID: Your Google Cloud Project ID.
 
+
 GCP_SA_KEY: The JSON key for the Google Cloud Service Account you created with the necessary permissions.
