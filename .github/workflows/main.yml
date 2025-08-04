@@ -11,8 +11,9 @@ env:
   REGION: us-central1
   APP_NAME: house-price-predictor
   GCS_BUCKET: machine_learning_data_lake
-  # Define the production frontend URL here
-  ALLOWED_ORIGINS_PROD: "https://your-deployed-frontend-url.run.app" 
+  # The full, public URL of your DEPLOYED frontend service
+  # This is the key fix that will be passed to your backend
+  ALLOWED_ORIGINS_PROD: "https://house-price-frontend-6s4034883351-uc.a.run.app" 
 
 jobs:
   build-and-deploy-backend:
