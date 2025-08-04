@@ -23,6 +23,6 @@ COPY ./src /app/src
 EXPOSE 8080
 
 # Command to run the application using uvicorn
-# This is the key fix: We use the $PORT environment variable provided by Cloud Run.
-# If $PORT is not set (like in local development), uvicorn defaults to 8000.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
+# This is the key fix: We use the "shell form" of CMD so that the $PORT
+# environment variable is correctly interpreted by the shell.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
