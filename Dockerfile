@@ -11,10 +11,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your application code into the container
-# This includes the 'app', 'src', and 'models' directories
+# This includes the 'app' and 'src' directories
 COPY ./app /app/app
 COPY ./src /app/src
-COPY ./models /app/models
+
+# We NO LONGER copy the models directory.
+# The application will download the model from GCS on startup.
 
 # Expose the port the app runs on
 EXPOSE 8000

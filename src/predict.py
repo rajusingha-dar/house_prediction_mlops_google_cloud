@@ -1,26 +1,60 @@
 import joblib
 import pandas as pd
 import os
+from google.cloud import storage
+from dotenv import load_dotenv
 
-# --- Load the model (Robust Path) ---
+# Load environment variables from .env file for local development
+load_dotenv()
+
+# --- Define Paths and Constants ---
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-model_path = os.path.join(PROJECT_ROOT, 'models', 'house_price_model.joblib')
+LOCAL_MODEL_DIR = os.path.join(PROJECT_ROOT, 'models')
+LOCAL_MODEL_PATH = os.path.join(LOCAL_MODEL_DIR, 'house_price_model.joblib')
+BUCKET_NAME = os.getenv("GCS_BUCKET_NAME") # Load from environment
+GCS_MODEL_PATH = 'models/house_price_model.joblib'
 
-if not os.path.exists(model_path):
-    raise FileNotFoundError(f"Model file not found at {model_path}. Make sure you have run the training script.")
+def download_model_from_gcs():
+    """Downloads the model from GCS if it doesn't exist locally."""
+    if not os.path.exists(LOCAL_MODEL_PATH):
+        print(f"Model not found locally. Downloading from GCS...")
+        os.makedirs(LOCAL_MODEL_DIR, exist_ok=True)
+        try:
+            if not BUCKET_NAME:
+                raise ValueError("GCS_BUCKET_NAME environment variable not set.")
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(BUCKET_NAME)
+            blob = bucket.blob(GCS_MODEL_PATH)
+            blob.download_to_filename(LOCAL_MODEL_PATH)
+            print("Model downloaded successfully.")
+        except Exception as e:
+            print(f"Failed to download model from GCS: {e}")
+            raise
+    else:
+        print("Model already exists locally.")
 
-# --- Load the entire model pipeline ---
-model = joblib.load(model_path)
+# --- Load the model ---
+# This block runs when the application starts.
+try:
+    download_model_from_gcs() # Ensure model is available before loading
+    model = joblib.load(LOCAL_MODEL_PATH)
+    print("Model loaded successfully.")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    model = None # Set model to None if loading fails
 
 # --- Extract the feature names the model was trained on ---
-try:
-    pipeline = model.regressor_
-    preprocessor = pipeline.named_steps['preprocessor']
-    model_columns = preprocessor.feature_names_in_
-except Exception as e:
-    raise RuntimeError("Could not extract feature names from the model pipeline.") from e
+if model:
+    try:
+        pipeline = model.regressor_
+        preprocessor = pipeline.named_steps['preprocessor']
+        model_columns = preprocessor.feature_names_in_
+    except Exception as e:
+        raise RuntimeError("Could not extract feature names from the model pipeline.") from e
+else:
+    model_columns = [] # Set to empty list if model failed to load
 
-# --- Define Default Values for a Simplified API ---
+# --- Define Default Values ---
 DEFAULT_INPUT_DATA = {
     "Order": 1, "PID": 526301100, "MSSubClass": 60, "MSZoning": "RL",
     "LotFrontage": 65.0, "LotArea": 9500, "Street": "Pave", "Alley": None,
@@ -49,12 +83,11 @@ DEFAULT_INPUT_DATA = {
     "MoSold": 6, "YrSold": 2008, "SaleType": "WD ", "SaleCondition": "Normal"
 }
 
-
 def make_prediction(input_data):
-    """
-    Makes a prediction using a simplified input dictionary.
-    It merges user input with defaults to create a full feature set.
-    """
+    """Makes a prediction using a simplified input dictionary."""
+    if model is None:
+        raise RuntimeError("Model is not loaded. Cannot make predictions.")
+        
     try:
         # Create a full feature dictionary by starting with defaults
         full_input = DEFAULT_INPUT_DATA.copy()

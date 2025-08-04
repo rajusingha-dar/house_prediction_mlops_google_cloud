@@ -19,3 +19,6 @@ shap
 # Tesing
 pytest
 pytest-asyncio
+
+# .env
+python-dotenv
